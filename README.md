@@ -129,3 +129,36 @@ Se eligió la complejidad ciclomática, con la cobertura de ramas como confirmac
   de un mismo método, y eso lo mide la ciclomática. Además, la regla de Quality Profile que se
   configura en la Parte 2 (S1541) es de complejidad ciclomática, así que se usa la misma métrica
   para diagnosticar y para controlar.
+
+---
+
+## Parte 2 — Refactorización guiada por métricas
+
+### 4. Patrón elegido: Strategy
+
+Antes de cambiar el código se revisó qué hacen realmente los condicionales de
+`calcularCosto()`:
+
+- **¿Guarda estado entre llamadas?** No. `ServicioCalculoEnvio` no tiene campos; el resultado
+  depende solo de los cinco parámetros. No hay un estado que cambie ni transiciones válidas entre
+  estados, que es lo que justificaría **State**.
+- **¿Hay una secuencia de responsables donde importe el orden?** No. Las cuatro ramas de
+  `metodoEnvio` son excluyentes: el valor elige una y solo una, y ninguna "deja pasar" la
+  solicitud a la siguiente. En **Chain of Responsibility** varios manejadores podrían aplicar y el
+  orden decide cuál resuelve; aquí reordenar las ramas no cambia ningún resultado.
+- **¿Cada rama calcula el mismo tipo de resultado con una fórmula propia, elegida una vez por un
+  valor?** Sí. Las cuatro ramas producen un costo base a partir de peso y distancia, cada una con
+  sus tarifas, sus tres tramos de peso y su recargo o restricción por distancia. Es la señal de
+  **Strategy** en la tabla de la guía.
+
+Qué se movió y qué se quedó:
+
+- **A cada estrategia** van los tramos de peso, el recargo por distancia, el factor 1,3 de express
+  y la restricción de 300 km de overnight: todo lo que depende de qué método se eligió.
+- **En el orquestador** se quedan la búsqueda de la estrategia (con el error para un método no
+  soportado), el recargo del 15 % por fragilidad y los descuentos por tipo de cliente. Son reglas
+  transversales: valen igual para los cuatro métodos. Meterlas en cada estrategia las duplicaría
+  cuatro veces, que es lo que la Unidad 6 llamaría introducir duplicación para bajar un número.
+
+Resultado esperado: `calcularCosto()` pasa de CC 20 a 5 (1 + estrategia nula + fragilidad +
+dos tipos de cliente) y cada estrategia queda entre 4 y 5.
