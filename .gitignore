@@ -1,0 +1,6 @@
+target/
+.analisis-inicial/
+.idea/
+*.iml
+.vscode/
+.scannerwork/
