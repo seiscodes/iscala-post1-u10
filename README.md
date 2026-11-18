@@ -14,6 +14,8 @@ costo de un envío según método de transporte, peso, distancia, fragilidad y t
 `analisis-sonar.ps1` (Windows) hace el proceso completo con Docker: levanta SonarQube, crea el
 proyecto y el token, analiza la versión inicial (tag `parte1-inicial`) y la versión actual, toma
 las capturas y escribe las métricas reales en este README y en `docs/metricas-sonar.md`.
+Si ya hay un SonarQube corriendo en el puerto 9000 (por ejemplo, la distribución ZIP de la
+Community Build), el script lo usa directamente y no necesita Docker.
 
 ---
 
@@ -53,7 +55,10 @@ Valores de SonarQube del mismo código (complejidad, complejidad cognitiva, cobe
 smells), tomados de la API del servidor por `analisis-sonar.ps1`:
 
 <!-- sonar-inicial:inicio -->
-*Pendiente: se completa al ejecutar `analisis-sonar.ps1`.*
+En el equipo donde se desarrolló la entrega no fue posible levantar el servidor de SonarQube (no
+tiene Docker y la instalación desde el ZIP no arrancó el motor de búsqueda interno), por lo que
+los valores medidos para esta versión son los de JaCoCo de la tabla anterior. Al ejecutar
+`analisis-sonar.ps1` con SonarQube disponible, esta sección se reemplaza con los valores del servidor.
 <!-- sonar-inicial:fin -->
 
 ### Interpretación
@@ -276,13 +281,16 @@ búsqueda en el mapa).
 Medido con SonarQube (lo escribe `analisis-sonar.ps1`):
 
 <!-- sonar-comparacion:inicio -->
-*Pendiente: se completa al ejecutar `analisis-sonar.ps1`.*
+Sin servidor de SonarQube disponible en el equipo de desarrollo (ver *Estado inicial*), la
+comparación válida de esta entrega es la de JaCoCo de la tabla anterior: misma herramienta sobre el
+tag `parte1-inicial` y sobre la versión final.
 <!-- sonar-comparacion:fin -->
 
 Detalle del análisis final en SonarQube, incluido el resultado del Quality Gate:
 
 <!-- sonar-final:inicio -->
-*Pendiente: se completa al ejecutar `analisis-sonar.ps1`.*
+La configuración del Quality Gate *Estándar Laboratorio* está descrita en la sección de decisiones y
+la crea `analisis-sonar.ps1`; su resultado se agrega aquí al ejecutar el script con el servidor activo.
 <!-- sonar-final:fin -->
 
 ### Capturas de JaCoCo
@@ -299,7 +307,7 @@ Después:
 ## Herramientas utilizadas
 
 - Java 21, Apache Maven (wrapper), JUnit 5 (pruebas parametrizadas)
-- JaCoCo 0.8.13, SonarQube Community en Docker, sonar-maven-plugin
+- JaCoCo 0.8.13, SonarQube Community Build (Docker o ZIP), sonar-maven-plugin
 - PowerShell (automatización del análisis), Git, GitHub
 
 ## Conclusiones

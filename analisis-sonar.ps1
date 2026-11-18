@@ -1,5 +1,5 @@
-﻿# Analisis completo de envios-service con SonarQube en Docker.
-#  1. Levanta SonarQube (contenedor "sonarqube"), cambia la clave de admin y genera un token.
+﻿# Analisis completo de envios-service con SonarQube (en Docker o uno ya iniciado en el puerto 9000).
+#  1. Usa el SonarQube del puerto 9000 o levanta el contenedor "sonarqube", cambia la clave de admin y genera un token.
 #  2. Analiza la version inicial (tag parte1-inicial) con el perfil y el gate por defecto.
 #  3. Crea el Quality Profile y el Quality Gate "Estándar Laboratorio" y analiza la version actual.
 #  4. Guarda capturas en docs\ y escribe las metricas reales en README.md y docs\metricas-sonar.md.
@@ -33,14 +33,20 @@ function Api([string]$metodo, [string]$ruta, [hashtable]$datos = $null) {
 }
 
 # ---------------------------------------------------------------- 1. SonarQube
-Write-Host '=== 1/5 SonarQube en Docker ==='
-docker version *> $null
-if ($LASTEXITCODE -ne 0) { Fallar 'Docker no responde. Abre Docker Desktop, espera a que diga "running" y vuelve a ejecutar.' }
-$existe = docker ps -a --filter 'name=^sonarqube$' --format '{{.Names}}'
-if (-not $existe) {
-    docker run -d --name sonarqube -p 9000:9000 -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true sonarqube:community | Out-Null
+Write-Host '=== 1/5 SonarQube ==='
+$yaActivo = $false
+try { $yaActivo = ((Invoke-RestMethod "$sonar/api/system/status" -TimeoutSec 5 -ErrorAction Stop).status -eq 'UP') } catch { }
+if ($yaActivo) {
+    Write-Host "Se usa el SonarQube que ya esta corriendo en $sonar."
 } else {
-    docker start sonarqube | Out-Null
+    docker version *> $null
+    if ($LASTEXITCODE -ne 0) { Fallar 'Docker no responde y no hay un SonarQube corriendo en el puerto 9000. Abre Docker Desktop o inicia SonarQube y vuelve a ejecutar.' }
+    $existe = docker ps -a --filter 'name=^sonarqube$' --format '{{.Names}}'
+    if (-not $existe) {
+        docker run -d --name sonarqube -p 9000:9000 -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true sonarqube:community | Out-Null
+    } else {
+        docker start sonarqube | Out-Null
+    }
 }
 Write-Host 'Esperando a que SonarQube este operativo (la primera vez tarda unos minutos)...'
 $estado = $null
@@ -49,7 +55,7 @@ for ($i = 0; $i -lt 120; $i++) {
     if ($estado -eq 'UP') { break }
     Start-Sleep -Seconds 5
 }
-if ($estado -ne 'UP') { Fallar 'SonarQube no arranco. Revisa con: docker logs sonarqube' }
+if ($estado -ne 'UP') { Fallar 'SonarQube no arranco en el puerto 9000.' }
 
 function Valida([string]$clave) {
     try { return (Invoke-RestMethod "$sonar/api/authentication/validate" -Headers (Cabecera 'admin' $clave) -ErrorAction Stop).valid } catch { return $false }
@@ -110,8 +116,14 @@ function Captura([string]$url, [string]$salida, [int]$ancho = 1400, [int]$alto =
     # Start-Process no pone comillas: se agregan para rutas con espacios
     $argumentos = "--headless=new --disable-gpu --hide-scrollbars --user-data-dir=`"$perfil`" --window-size=$ancho,$alto " +
                   "--virtual-time-budget=20000 --screenshot=`"$salida`" `"$url`""
-    Start-Process -FilePath $nav -Wait -WindowStyle Hidden -ArgumentList $argumentos
-    Write-Host "  captura: $salida"
+    if (Test-Path $salida) { Remove-Item $salida -Force }
+    $p = Start-Process -FilePath $nav -WindowStyle Hidden -ArgumentList $argumentos -PassThru
+    if (-not $p.WaitForExit(90000)) {
+        Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like '*--headless*' } |
+            ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    }
+    if (Test-Path $salida) { Write-Host "  captura: $salida" } else { Write-Host "  (no se pudo tomar $salida)" }
 }
 
 function UrlArchivo([string]$ruta) { 'file:///' + ((Resolve-Path $ruta).Path -replace '\\', '/' -replace ' ', '%20') }
